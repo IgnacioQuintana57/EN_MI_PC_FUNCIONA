@@ -20,26 +20,35 @@ En este trabajo se analizan distintos aspectos del rendimiento de un computador,
 Un benchmark es un programa que permite medir el rendimiento de un sistema ejecutando una tarea específica. Según la teoría, el rendimiento de un computador está directamente relacionado con el tiempo que tarda en ejecutar un programa: a menor tiempo, mayor rendimiento.
 
 Algunos de los benchmarks que analizamos son:
-  - [3DMark Wild Life Extreme](https://openbenchmarking.org/tests/pts/3dmark)
-  
-
-
-
+  - [3DMark Wild Life Extreme](https://openbenchmarking.org/test/pts/3dmark)
+  - [Timed Linux Kernel Compilation](https://openbenchmarking.org/test/pts/build-linux-kernel-1.17.1)
+  - [Timed Node.js Compilation](https://openbenchmarking.org/test/pts/build-nodejs)
+  - [Geekbench](https://www.geekbench.com/): Mide rendimiento de CPU (single-core y multi-core)
+  - [PassMark PerformanceTest](https://www.passmark.com/): Benchmark completo (CPU, RAM, disco, GPU)
+  - [Cinebench](https://www.maxon.net/en/cinebench): Muy usado para CPU (renderizado 3D)
+  - [Unigine Heaven Benchmark](https://benchmark.unigine.com/heaven): Benchmark gráfico clásico
+  - [CrystalDiskMark](https://crystalmark.info/en/software/crystaldiskmark/): Velocidad de lectura/escritura
+  - [Speedometer](https://browserbench.org/Speedometer/): Mide rendimiento de apps web (JS frameworks)
+  - [JetStream](https://browserbench.org/JetStream/): Benchmark avanzado de JavaScript
+  - [UserBenchmark](https://www.userbenchmark.com/): Fácil de usar, comparación con otros usuarios
+  - 
 ---
 
 ## Cuáles son más útiles?
-    (completar)
-
+    La utilidad de los benchmarks está directamente relacionada con el tipo de tareas que se realizan habitualmente. Cuanto más específico sea el benchmark respecto a la actividad que se quiere evaluar, más representativos y útiles serán sus resultados.
+    Por ejemplo, un benchmark orientado a rendimiento web será más útil para un desarrollador frontend, mientras que uno enfocado en CPU o disco será más relevante para tareas de compilación o manejo de datos.
 ---
 
 # 2. Tabla: tareas diarias vs benchmarks
 
-| Tarea diaria                         | Benchmark representativo           | Explicación |
-|------------------------------------|----------------------------------|------------|
-| Compilar código                    | build-linux-kernel               | Simula carga real de CPU y paralelismo |
-| Ejecutar programas propios         | gprof / perf                    | Permite analizar qué funciones consumen tiempo |
-| Navegación web                     | Geekbench (parcialmente)         | Evalúa rendimiento general |
-| Desarrollo de software             | build-linux-kernel + profiling   | Combina rendimiento real y análisis interno |
+| Tarea diaria               | Benchmark representativo       |
+| -------------------------- | ------------------------------ |
+| Uso general                | PassMark PerformanceTest       |
+| Compilar código            | build-linux-kernel             |
+| Ejecutar programas propios | gprof / perf                   |
+| Navegación web             | Speedometer                    |
+| Desarrollo de software     | build-linux-kernel + profiling |
+| Desarrollo de frontend     | JetStream                      |
 
 Conclusión:  
 Los benchmarks más útiles son aquellos que representan el uso real del sistema, ya que permiten medir el rendimiento en condiciones cercanas a la práctica.
@@ -58,11 +67,11 @@ Se analiza el rendimiento de distintos procesadores ejecutando la compilación d
 
 ## 🔹 Resultados
 
-| Procesador          | Núcleos | Tiempo (s) | Rendimiento (1/tiempo) |
-|--------------------|--------|-----------|------------------------|
-| i5-13600K          | 14     | 72        | 0.0139                 |
-| Ryzen 9 5900X      | 12     | 76        | 0.0132                 |
-| Ryzen 9 7950X      | 16     | 50        | 0.0200                 |
+| Procesador    | Núcleos | Tiempo (s) | Rendimiento (1/tiempo) |
+| ------------- | ------- | ---------- | ---------------------- |
+| i5-13600K     | 14      | 72         | 0.0139                 |
+| Ryzen 9 5900X | 12      | 76         | 0.0132                 |
+| Ryzen 9 7950X | 16      | 50         | 0.0200                 |
 
 ## Análisis
 
@@ -83,11 +92,11 @@ Speedup = Tiempo referencia / Tiempo nuevo
 
 Tomando como referencia el i5:
 
-| Procesador     | Speedup |
-|---------------|--------|
-| i5-13600K     | 1.00   |
-| Ryzen 9 5900X | 0.95   |
-| Ryzen 9 7950X | 1.44   |
+| Procesador    | Speedup |
+| ------------- | ------- |
+| i5-13600K     | 1.00    |
+| Ryzen 9 5900X | 0.95    |
+| Ryzen 9 7950X | 1.44    |
 
 ## Análisis
 
@@ -105,11 +114,11 @@ El speedup permite comparar mejoras relativas entre sistemas.
 
 Eficiencia = Speedup / número de núcleos
 
-| Procesador     | Núcleos | Eficiencia |
-|---------------|--------|-----------|
-| i5-13600K     | 14     | 0.0714    |
-| Ryzen 9 5900X | 12     | 0.0789    |
-| Ryzen 9 7950X | 16     | 0.0900    |
+| Procesador    | Núcleos | Eficiencia |
+| ------------- | ------- | ---------- |
+| i5-13600K     | 14      | 0.0714     |
+| Ryzen 9 5900X | 12      | 0.0789     |
+| Ryzen 9 7950X | 16      | 0.0900     |
 
 ## Análisis
 
@@ -120,11 +129,11 @@ Eficiencia = Speedup / número de núcleos
 
 ## 🔹 Eficiencia por costo
 
-| Procesador     | Costo | Eficiencia |
-|---------------|------|-----------|
-| i5-13600K     | 284  | 0.00352   |
-| Ryzen 9 5900X | 278  | 0.00341   |
-| Ryzen 9 7950X | 549  | 0.00262   |
+| Procesador    | Costo | Eficiencia |
+| ------------- | ----- | ---------- |
+| i5-13600K     | 284   | 0.00352    |
+| Ryzen 9 5900X | 278   | 0.00341    |
+| Ryzen 9 7950X | 549   | 0.00262    |
 
 ## Análisis
 
@@ -158,13 +167,13 @@ Se realizó una medición experimental en las computadoras personales de cada in
 
 ### Estimación de tiempos por función
 
-| Función     | Tiempo (s) | % del total |
-|------------|-----------|-------------|
-| func1      | 6.720     | 52.0%       |
-| func2      | 4.864     | 37.6%       |
-| new_func1  | 1.280     | 9.9%        |
-| main       | 0.064     | 0.5%        |
-| **Total**  | **12.928**| **100%**    |
+| Función   | Tiempo (s) | % del total |
+| --------- | ---------- | ----------- |
+| func1     | 6.720      | 52.0%       |
+| func2     | 4.864      | 37.6%       |
+| new_func1 | 1.280      | 9.9%        |
+| main      | 0.064      | 0.5%        |
+| **Total** | **12.928** | **100%**    |
 
 ---
 
