@@ -19,21 +19,11 @@ En este trabajo se analizan distintos aspectos del rendimiento de un computador,
 
 Un benchmark es un programa que permite medir el rendimiento de un sistema ejecutando una tarea específica. Según la teoría, el rendimiento de un computador está directamente relacionado con el tiempo que tarda en ejecutar un programa: a menor tiempo, mayor rendimiento.
 
-## 🔹 Benchmarks seleccionados
+Algunos de los benchmarks que analizamos son:
+  - [3DMark Wild Life Extreme](https://openbenchmarking.org/tests/pts/3dmark)
+  
 
-(VER)
 
-- **Phoronix Test Suite (PTS)**  
-  Permite ejecutar múltiples pruebas reales de rendimiento.
-
-- **build-linux-kernel (PTS)**  
-  Mide el tiempo de compilación del kernel de Linux. Representa una carga real de trabajo intensiva en CPU.
-
-- **Geekbench**  
-  Benchmark sintético que mide rendimiento general de CPU.
-
-- **Cinebench**  
-  Evalúa rendimiento en tareas de renderizado (uso intensivo de CPU multinúcleo).
 
 ---
 
@@ -188,6 +178,8 @@ Se realizó una medición experimental en las computadoras personales de cada in
 Esto indica que:
 - El rendimiento del programa depende principalmente de `func1` y `func2`
 - Estas funciones serían las principales candidatas para optimización
+
+![Evidencia](../rendimientoGPROF.png)
 
 ---
 
