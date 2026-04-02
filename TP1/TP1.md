@@ -190,7 +190,7 @@ Esto indica que:
 - El rendimiento del programa depende principalmente de `func1` y `func2`
 - Estas funciones serían las principales candidatas para optimización
 
-![Evidencia](../rendimientoGPROF.png)
+![Evidencia](./assets/rendimientoGPROF.png)
 
 ---
 
@@ -204,6 +204,104 @@ Esto indica que:
 
 ---
 
+--- 
+
+# Actividad del ESP32
+Para realizar la actividad, utilizamos un ESP32 y ejecutamos una función de Fibonacci recursiva, ya que es una operación intensiva en CPU y permite medir claramente los tiempos de ejecución.
+Luego de realizar varias pruebas, encontramos que con una frecuencia de 240 MHz y un valor de n = 39, el programa tarda aproximadamente 10 segundos en ejecutarse.
+A partir de ese punto, fuimos disminuyendo la frecuencia del procesador y midiendo el tiempo de ejecución en cada caso.
+
+## Resultados
+
+| Frecuencia | Tiempo (μs) | Tiempo (s) |
+| ---------- | ----------- | ---------- |
+| 240 MHz    | 10482828    | 10.48      |
+| 160 MHz    | 15757081    | 15.75      |
+| 80 MHz     | 31717726    | 31.71      |
+
+
+Se observa que el tiempo de ejecución es inversamente proporcional a la frecuencia del procesador.
+
+Al reducir la frecuencia a la mitad, el tiempo de ejecución aproximadamente se duplica. Esto ocurre porque el procesador dispone de menos ciclos por segundo para ejecutar las instrucciones, por lo que el mismo cálculo tarda más tiempo en completarse.
+
+
+## Código utilizado
+
+```cpp
+uint32_t startTime;
+uint32_t endTime;
+
+int fibonacci(int n) {
+  if (n <= 1) return n;
+  return fibonacci(n - 1) + fibonacci(n - 2);
+}
+
+void runTest(int freq) {
+  Serial.println("----------------------------");
+  Serial.print("Cambiando a frecuencia: ");
+  Serial.print(freq);
+  Serial.println(" MHz");
+
+  setCpuFrequencyMhz(freq);
+  delay(1000);
+
+  Serial.print("Frecuencia actual: ");
+  Serial.print(getCpuFrequencyMhz());
+  Serial.println(" MHz");
+
+  startTime = micros();
+  int result = fibonacci(39);
+  endTime = micros();
+
+  Serial.print("Resultado Fibonacci: ");
+  Serial.println(result);
+
+  Serial.print("Tiempo (microsegundos): ");
+  Serial.println(endTime - startTime);
+}
+
+void setup() {
+  Serial.begin(115200);
+  delay(2000);
+
+  Serial.println("Test de CPU con Fibonacci");
+
+  runTest(80);
+  delay(3000);
+
+  runTest(160);
+  delay(3000);
+
+  runTest(240);
+}
+
+void loop() {}
+
+```
+
+## Output
+
+```cpp
+Test de CPU con Fibonacci
+----------------------------
+Cambiando a frecuencia: 80 MHz
+Frecuencia actual: 80 MHz
+Resultado Fibonacci: 63245986
+Tiempo (microsegundos): 31717726
+----------------------------
+Cambiando a frecuencia: 160 MHz
+Frecuencia actual: 160 MHz
+Resultado Fibonacci: 63245986
+Tiempo (microsegundos): 15757081
+----------------------------
+Cambiando a frecuencia: 240 MHz
+Frecuencia actual: 240 MHz
+Resultado Fibonacci: 63245986
+Tiempo (microsegundos): 10482828
+```
+
+
+
 # Conclusión general
 
 - El rendimiento se mide principalmente por el tiempo de ejecución
@@ -211,3 +309,6 @@ Esto indica que:
 - El Ryzen 9 7950X es el más rápido, pero no el más eficiente en costo
 - El i5-13600K ofrece mejor balance costo/rendimiento
 - El profiling permite detectar los verdaderos cuellos de botella del código
+
+
+
