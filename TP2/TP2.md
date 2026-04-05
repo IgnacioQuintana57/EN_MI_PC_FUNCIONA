@@ -93,3 +93,18 @@ python3 gini.py
 - Reemplazar la función de C con código **Ensamblador**
 - Mostrar el estado del **stack** con GDB antes, durante y después de la función
 - Usar las convenciones de llamadas **System V AMD64 ABI**
+
+
+
+
+
+
+Probamos con Tadeo rapido la parte de C => Assembler.
+Para usar hay que ejecutar los siguientes comandos:
+
+1. Transformar en objeto la subrutina de ASM (Importante que los nombres sean iguales)
+as --64 -g -o sumar_uno.o sumar_uno.s
+2. C
+gcc -g -O0 -c pruebasASM.c -o pruebasASM.o
+3. Compilar programa:
+gcc -o programa pruebasASM.o sumar_uno.o
