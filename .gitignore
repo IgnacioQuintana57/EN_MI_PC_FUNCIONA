@@ -53,3 +53,8 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+
+# CARPETA DEL ENTORNO VIRTUAL
+**venv/
+**.venv/
