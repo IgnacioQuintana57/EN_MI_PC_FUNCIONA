@@ -101,3 +101,4 @@ Ventajas de su utilización:
     Qué es: Es la dirección de memoria física (o virtual) donde tu programa espera ser cargado en la RAM al momento de ejecutarse.
 
     Por qué es necesaria: En programación normal, el sistema operativo (Windows/Linux) carga tu programa en cualquier parte libre de la RAM y ajusta las direcciones por ti. Pero en bare-metal no hay sistema operativo. La BIOS o UEFI carga tu código en un lugar específico de la memoria (por ejemplo, los bootloaders clásicos siempre se cargan en 0x7C00). El linker necesita saber esto para calcular correctamente los saltos (jumps) y dónde buscar las variables. Si le mientes al linker, tu programa buscará cosas en la memoria equivocada y colapsará.
+
