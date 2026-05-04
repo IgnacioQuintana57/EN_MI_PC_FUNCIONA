@@ -15,7 +15,7 @@ https://github.com/IgnacioQuintana57/EN_MI_PC_FUNCIONA
 ---
 
 
-### Introducción
+## Introducción
 
 
 En este TP ejecutaremos un trozo de código que configura nuestro procesador para llevarlo desde el modo real al modo protegido.
@@ -61,7 +61,6 @@ CSME (Converged Security and Management Engine): Es un microcontrolador y un sub
 
 Intel MEBx (Management Engine BIOS Extension): Es el menú de configuración de ese subsistema. Es una extensión a la que puedes acceder durante el arranque de la computadora (generalmente presionando Ctrl+P). Los administradores de sistemas (IT) usan el MEBx para habilitar o deshabilitar la administración remota (Intel AMT), configurar contraseñas de red y asignar direcciones IP a este procesador oculto.
 
-
 ### Coreboot: ¿Qué es, quién lo usa y sus ventajas?
 
 Coreboot es un proyecto de firmware de código abierto respaldado por la Free Software Foundation. Nació con la filosofía opuesta a UEFI: en lugar de ser un sistema gigante y complejo, Coreboot busca ser lo más minimalista posible. Su único trabajo es inicializar el procesador, la memoria y el hardware básico extremadamente rápido, y luego pasarle el control inmediatamente a un "payload" (como SeaBIOS para emular una BIOS antigua, o TianoCore para emular UEFI, o incluso un kernel de Linux directo).
@@ -82,9 +81,6 @@ Transparencia y Seguridad (Open Source): El código es público. Los desarrollad
 
 Libertad del usuario: No estás atado a las actualizaciones de la placa madre del fabricante (que suelen abandonar el soporte en un par de años). La comunidad puede seguir actualizando el firmware del equipo.
 
-
----
-
 ## Desafío Linker
 
 ### ¿Qué es un linker? ¿Qué hace?
@@ -97,6 +93,8 @@ Combina secciones: Agrupa todo el código ejecutable de tus archivos en una secc
 
 Asigna direcciones de memoria: Le da a cada instrucción y variable una dirección de memoria final para que el procesador sepa dónde encontrarlas cuando el programa se ejecute.
 
+---
+
 ### ¿Qué es la dirección que aparece en el script del linker? ¿Por qué es necesaria?
 
 En un script de linker (archivo .ld), sueles ver una línea que asigna un valor al "Location Counter" (representado por un punto .), por ejemplo: . = 0x7C00; o . = 0x100000;.
@@ -107,7 +105,13 @@ Por qué es necesaria: En programación normal, el sistema operativo (Windows/Li
 
 ---
 
-### aca va lo del pendrive
+### Booteable Hello World
+
+Para esta actividad es necesario contar con una PC/Notebook lo suficientemente antigua como para que sea compatible con el booteo BIOS solicitado, y nosotros no tenemos equipos de esas características.
+
+Lo que pudimos hacer es emular esto mediante QEMU como se ve en la imagen siguiente:
+
+![BooteoQEMU](./assets/QEMU_HelloWorld.png)
 
 ---
 
