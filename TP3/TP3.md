@@ -124,7 +124,7 @@ Para esta actividad es necesario contar con una PC/Notebook lo suficientemente a
 
 Lo que pudimos hacer es emular esto mediante QEMU como se ve en la imagen siguiente:
 
-![BooteoQEMU](./assets/QEMU_HelloWorld.png)
+![BooteoQEMU](assets/QEMU_HelloWorld.png)
 
 ---
 
@@ -147,13 +147,13 @@ Se nos pidió hacer un código en assembler que pase a modo protegido. El progra
 
 El sistema operativo bare-metal es estable. QEMU se queda "congelado" esperando instrucciones para siempre como se observa en la siguiente imagen:
 
-![QEMU](/EN_MI_PC_FUNCIONA/TP3/assets/qemu_andando.png)
+![QEMU](assets/qemu_andando.png)
 
 El programa entra a Modo Protegido igual que antes, pero justo antes de entrar al bucle infinito, intenta escribir una letra 'A' en la memoria.
 
 Como ahora modificamos la GDT para que la memoria sea estrictamente de "Solo Lectura", el procesador intercepta la escritura, detecta una violación de seguridad y lanza un error. Al no saber cómo manejar el error, la CPU entra en pánico (Fallo Triple) y reinicia la máquina a la fuerza. QEMU parpadea infinitamente en un ciclo de reinicios como se observa en el gif:
 
-![QEMU](/EN_MI_PC_FUNCIONA/TP3/assets/tripleFaultE2E.gif)
+![QEMU](assets/tripleFaultE2E.gif)
 
 En Modo Protegido, los registros de segmento (como CS, DS, ES) ya no se cargan con las direcciones base físicas de la memoria (como se hacía en Modo Real multiplicando por 16). En su lugar, se cargan con Selectores de Segmento (Segment Selectors). En nuestro código, CS se carga con el valor 0x08 y los registros de datos con 0x10.
 
