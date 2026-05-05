@@ -111,7 +111,7 @@ Para esta actividad es necesario contar con una PC/Notebook lo suficientemente a
 
 Lo que pudimos hacer es emular esto mediante QEMU como se ve en la imagen siguiente:
 
-![BooteoQEMU](./assets/QEMU_HelloWorld.png)
+![BooteoQEMU](assets/QEMU_HelloWorld.png)
 
 ---
 
