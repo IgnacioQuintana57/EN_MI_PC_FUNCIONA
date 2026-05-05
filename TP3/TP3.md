@@ -28,8 +28,6 @@ El modo protegido es un modo operacional de los CPUs compatibles x86 de la serie
 
 ## Desafío UEFI y coreboot
 
----
-
 ### ¿Qué es UEFI, cómo usarlo y qué función se puede llamar?
 
 UEFI (Unified Extensible Firmware Interface) es el estándar de firmware que reemplazó a la BIOS. Básicamente, es como un sistema operativo que hace de puente entre el hardware de una computadora y el sistema operativo (LINUX ❤️, Windows 🤢, etc). Es el encargado de inicializar los componentes, verificar firmas de seguridad (Secure Boot) y cargar el bootloader.
@@ -45,8 +43,6 @@ Ejemplo de una función:
 A nivel de código, UEFI provee "Servicios de Arranque" (Boot Services) y "Servicios en Tiempo de Ejecución" (Runtime Services).
 Una función clásica a la que un programador o el sistema operativo puede llamar es GetVariable(). Esta función permite leer información directamente de la memoria no volátil (NVRAM) de la motherboard.
 
----
-
 ### Bugs de UEFI que pueden ser explotados
 
 El firmware es un objetivo muy importante para los atacantes (crackers) porque el código que se ejecuta ahí tiene más privilegios que el propio sistema operativo y sobrevive a formateos del almacenamiento. Algunos casos reales y famosos de vulnerabilidades UEFI son:
@@ -57,8 +53,6 @@ BlackLotus (2022/2023): Fue el primer bootkit en estado salvaje (wild) capaz de 
 
 LoJax (2018): Descubierto por ESET, fue el primer rootkit UEFI utilizado en ataques reales (asociado al grupo ruso APT28). Modificaba la memoria flash SPI de la placa madre. Aunque cambiaras el disco duro completo, el malware seguía infectando la PC en cada inicio.
 
----
-
 ### ¿Qué son CSME e Intel MEBx?
 
 Estas tecnologías son, en esencia, una computadora dentro de la computadora.
@@ -67,8 +61,6 @@ CSME (Converged Security and Management Engine): Es un microcontrolador y un sub
 
 Intel MEBx (Management Engine BIOS Extension): Es el menú de configuración de ese subsistema. Es una extensión a la que puedes acceder durante el arranque de la computadora (generalmente presionando Ctrl+P). Los administradores de sistemas (IT) usan el MEBx para habilitar o deshabilitar la administración remota (Intel AMT), configurar contraseñas de red y asignar direcciones IP a este procesador oculto.
 
----
-    
 ### Coreboot: ¿Qué es, quién lo usa y sus ventajas?
 
 Coreboot es un proyecto de firmware de código abierto respaldado por la Free Software Foundation. Nació con la filosofía opuesta a UEFI: en lugar de ser un sistema gigante y complejo, Coreboot busca ser lo más minimalista posible. Su único trabajo es inicializar el procesador, la memoria y el hardware básico extremadamente rápido, y luego pasarle el control inmediatamente a un "payload" (como SeaBIOS para emular una BIOS antigua, o TianoCore para emular UEFI, o incluso un kernel de Linux directo).
@@ -89,12 +81,7 @@ Transparencia y Seguridad (Open Source): El código es público. Los desarrollad
 
 Libertad del usuario: No estás atado a las actualizaciones de la placa madre del fabricante (que suelen abandonar el soporte en un par de años). La comunidad puede seguir actualizando el firmware del equipo.
 
-
----
-
 ## Desafío Linker
-
----
 
 ### ¿Qué es un linker? ¿Qué hace?
 
@@ -130,9 +117,9 @@ Lo que pudimos hacer es emular esto mediante QEMU como se ve en la imagen siguie
 
 ### ¿Para qué se utiliza --oformat binary?
 
-    Se utiliza para pedirle al linker que elimine todas las cabeceras, tablas y metadatos del archivo final, y en su lugar genere un 'flat binary'. Este binario contiene única y exclusivamente las instrucciones de máquina crudas y los datos estáticos, sin ningún tipo de formato o envoltura.
+Se utiliza para pedirle al linker que elimine todas las cabeceras, tablas y metadatos del archivo final, y en su lugar genere un 'flat binary'. Este binario contiene única y exclusivamente las instrucciones de máquina crudas y los datos estáticos, sin ningún tipo de formato o envoltura.
 
-    Si no usaramos --oformat binary y le pasamos a la BIOS un archivo ELF normal, el procesador tomaría el texto de la cabecera (metadatos) e intentaría "ejecutarlos" como si fueran comandos. Como resultado, la computadora colapsaría o se reiniciaría instantáneamente.
+Si no usaramos --oformat binary y le pasamos a la BIOS un archivo ELF normal, el procesador tomaría el texto de la cabecera (metadatos) e intentaría "ejecutarlos" como si fueran comandos. Como resultado, la computadora colapsaría o se reiniciaría instantáneamente.
 
 
 
@@ -141,19 +128,17 @@ Lo que pudimos hacer es emular esto mediante QEMU como se ve en la imagen siguie
 
 ## Desafío Modo Protegido
 
----
-
 Se nos pidió hacer un código en assembler que pase a modo protegido. El programa al iniciar configura el procesador para saltar al Modo Protegido de 32 bits, carga la tabla de memoria (GDT) y entra en un bucle infinito.
 
 El sistema operativo bare-metal es estable. QEMU se queda "congelado" esperando instrucciones para siempre como se observa en la siguiente imagen:
 
-![QEMU](assets/qemu_andando.png)
+![QEMU](./assets/qemu_andando.png)
 
 El programa entra a Modo Protegido igual que antes, pero justo antes de entrar al bucle infinito, intenta escribir una letra 'A' en la memoria.
 
 Como ahora modificamos la GDT para que la memoria sea estrictamente de "Solo Lectura", el procesador intercepta la escritura, detecta una violación de seguridad y lanza un error. Al no saber cómo manejar el error, la CPU entra en pánico (Fallo Triple) y reinicia la máquina a la fuerza. QEMU parpadea infinitamente en un ciclo de reinicios como se observa en el gif:
 
-![QEMU](assets/tripleFaultE2E.gif)
+![QEMU](./assets/tripleFaultE2E.gif)
 
 En Modo Protegido, los registros de segmento (como CS, DS, ES) ya no se cargan con las direcciones base físicas de la memoria (como se hacía en Modo Real multiplicando por 16). En su lugar, se cargan con Selectores de Segmento (Segment Selectors). En nuestro código, CS se carga con el valor 0x08 y los registros de datos con 0x10.
 
