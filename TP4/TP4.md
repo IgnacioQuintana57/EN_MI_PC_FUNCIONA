@@ -369,6 +369,27 @@ Esto es importante porque un módulo de kernel no se ejecuta como un programa co
 mimodulo: module verification failed: signature and/or required key missing - tainting kernel
 ```
 
+El proceso de firma y validación consta de los siguientes pasos:
+
+-Generación de claves (MOK): Se utiliza la herramienta openssl para generar un par de claves criptográficas de tipo Machine Owner Key (MOK). Esto produce una clave privada (.priv), utilizada para estampar la firma, y un certificado público (.der), que el sistema usará para verificarla.
+
+![firma_primer_paso](./assets/firma1.png)
+
+-Firma del archivo binario: Se emplea el script sign-file, provisto por las cabeceras (headers) del kernel de Linux. Este script toma el módulo recién compilado y le incrusta la firma digital generada mediante un algoritmo de hash (como SHA256) y la clave privada.
+
+![firma_segundo_paso](./assets/firma2.png)
+
+-Solicitud de enrolamiento (MOKUtil): Se utiliza el comando mokutil para indicarle al firmware del equipo (UEFI) que debe confiar en nuestra nueva clave. La herramienta importa el certificado público (.der) y solicita al usuario la creación de una contraseña temporal de un solo uso.
+
+![firma_tercer_paso](./assets/firma3.png)
+
+-Confirmación en la UEFI (MOKManager): Al reiniciar el equipo, la rutina de arranque detecta la solicitud pendiente y lanza una pantalla azul conocida como MOKManager. En esta instancia, el usuario debe autorizar físicamente la importación de la clave ingresando la contraseña temporal del paso anterior.
+
+-Verificación y carga: Una vez que el sistema operativo arranca normalmente, la clave ya forma parte de la base de datos de confianza de la computadora. Se puede auditar la firma del módulo utilizando el comando modinfo y, finalmente, cargarlo en el kernel sin restricciones utilizando insmod.
+
+Aclaración: dado que el sistema que usamos es una VM figura el "error" `EFI variables are not supported on this system` que significa que la máquina virtual está arrancando en modo Legacy (BIOS tradicional) en lugar de modo UEFI. 
+Como no hay Secure Boot controlando qué se ejecuta y qué no, el kernel de Linux está totalmente liberado.
+
 
 ### 9. Evidencia de compilación, carga y descarga del módulo
 
