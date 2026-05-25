@@ -28,30 +28,29 @@ modo_protegido:
     
     jmp $           ; Loop infinito (hang)
 
-; ==========================================
-; TABLA DE DESCRIPTORES GLOBALES (GDT) RAW
-; ==========================================
+; =====================================
+; TABLA DE DESCRIPTORES GLOBALES (GDT) (ahora corregimos para que no se solape)
+; =====================================
 gdt_start:
 
-gdt_null:           ; Descriptor nulo (Obligatorio, offset 0x00)
+gdt_null:           ; Descriptor nulo
     dq 0x0
 
-gdt_code:           ; Descriptor de Código (Offset 0x08) - Base: 0x00000000
-    dw 0xFFFF       ; Límite (bits 0-15)
-    dw 0x0000       ; Base (bits 0-15)
-    db 0x00         ; Base (bits 16-23)
-    db 10011010b    ; Byte de Acceso (Presente, Ring 0, Código, Ejecutable/Lectura)
-    db 11001111b    ; Banderas (4KB granularidad, 32-bit) + Límite (bits 16-19)
-    db 0x00         ; Base (bits 24-31)
+gdt_code:           ; Descriptor de Código (Offset 0x08)
+    dw 0xFFFF       ; Límite (0xFFFF = 64 KB de tamaño)
+    dw 0x0000       ; Base (bits 0-15) -> 0x0000
+    db 0x00         ; Base (bits 16-23) -> 0x00
+    db 10011010b    ; Byte de Acceso (Código, Ejecutable/Lectura)
+    db 01000000b    ; Banderas: Granularidad en 0 (Bytes) y bit D/B en 1 (32-bit)
+    db 0x00         ; Base (bits 24-31) -> Base Total = 0x00000000
 
-gdt_data:           ; Descriptor de Datos (Offset 0x10) - Base: 0x00010000 (Diferenciado)
-    dw 0xFFFF       ; Límite
-    dw 0x0000       ; Base (bits 0-15)
-    db 0x01         ; Base (bits 16-23) -> ¡Aquí le damos una base diferente! (0x010000)
-    ;db 10010010b    ; Byte de Acceso (Presente, Ring 0, Datos, Lectura/Escritura)
-    db 10010000b    ; Byte de Acceso (Cambiado a SOLO LECTURA)
-    db 11001111b    ; Banderas + Límite
-    db 0x00         ; Base
+gdt_data:           ; Descriptor de Datos (Offset 0x10) -
+    dw 0xFFFF       ; Límite (0xFFFF = 64 KB de tamaño)
+    dw 0x0000       ; Base (bits 0-15) -> 0x0000
+    db 0x01         ; Base (bits 16-23) -> 0x01
+    db 10010010b    ; Byte de Acceso (Datos, Lectura/Escritura)
+    db 01000000b    ; Banderas: Granularidad en 0 (Bytes) y bit D/B en 1 (32-bit)
+    db 0x00         ; Base (bits 24-31) -> Base Total = 0x00010000
 
 gdt_end:
 
