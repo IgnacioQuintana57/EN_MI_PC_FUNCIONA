@@ -1,0 +1,19 @@
+Un "driver" es aquel que conduce, administra, controla, dirige, monitorea la entidad bajo su mando. Un "bus driver" hace eso con un "bus". De manera similar, un "device driver" hace eso con un dispositivo. Un dispositivo puede ser cualquier periférico conectado a una computadora, por ejemplo, un mouse, un teclado, una pantalla/monitor, un disco duro, una cámara, un reloj, etc., cualquier cosa.
+
+Un "driver" puede ser una persona o sistemas automáticos, posiblemente monitoreados por otra persona. Del mismo modo, el "device driver" podría ser una pieza de software u otro periférico/dispositivo, posiblemente controlado por un software. Sin embargo, si se trata de otro periférico/dispositivo, se denomina "device controller" en el lenguaje común. Y por "driver" solo nos referimos a un "software driver". Un "device controller" es un dispositivo en sí mismo y, por lo tanto, muchas veces también necesita un "driver", comúnmente conocido como "bus driver".
+
+Los ejemplos generales de "device controller" incluyen controladores de disco duro, controladores de pantalla, controladores de audio para los dispositivos correspondientes. Ejemplos más técnicos serían los controladores para los protocolos de hardware, como un controlador IDE, un controlador PCI, un controlador USB, un controlador SPI, un controlador I2C, etc. 
+
+En el desarrollo de esta clase veremos estas sutiles diferencias y aprenderemos a construir un "driver" de caracteres.
+
+Para superar este TP tendrán que diseñar y construir un CDD que permita sensar dos señales externas con un periodo de UN segundo. Luego una aplicación a nivel de usuario deberá leer UNA de las dos señales y graficarla en función del tiempo. La aplicación tambien debe poder indicarle al CDD cuál de las dos señales leer. Las correcciones de escalas de las mediciones, de ser necesario, se harán a nivel de usuario. Los gráficos de la señal deben indicar el tipo de señal que se
+está sensando, unidades en abcisas y tiempo en ordenadas. Cuando se cambie de señal el gráfico se debe "resetear" y acomodar a la nueva medición.
+Se recomienda utilizar una Raspberry Pi para desarrollar este TP.
+
+
+El enfoque que deben aplicar en este TP es el de compilación cruzada (cross-compilation). El flujo de trabajo que deben manejar es el siguiente:
+Entorno de desarrollo: Todo el código (tanto el driver .ko como la aplicación de usuario) lo van a escribir en su PC anfitriona (host). Les recomiendo encarecidamente utilizar Codium (VSCodium) para esto.
+Compilación Cruzada: Van a configurar su Makefile en la PC de escritorio para compilar el código apuntando a la arquitectura de la Raspberry (ARM). Recuerden que deben tener los headers especificos de la version de kernel que van a tener en el dispositivo, y el compilador con soporte para la arquitectura del procesador que esten usando.
+Transferencia de binarios: Una vez generados los binarios (.ko y el ejecutable de usuario) en su PC, los van a enviar a la Raspberry Pi a través de SSH (usando comandos como scp o herramientas sincronizadas desde Codium).
+Aplicación y Visualización: Busco que hagan una aplicación completa con los recursos que tengan a mano. En lugar de una aplicación de escritorio pesada (que en una Pi Zero sin entorno gráfico es un problema), una excelente forma de visualización es implementar una interfaz web. Pueden hacer que el programa de usuario lea el dispositivo de caracteres y sirva esos datos por red, permitiendo ver el gráfico (señal, unidades, tiempo) directamente desde el navegador de su PC.
+Sobre QEMU: qemu-rpi-gpio es la alternativa si no quieren o no pueden comprar el hardware. Tengan en cuenta que el flujo de trabajo es exactamente el mismo: desarrollan y cross-compilan en su PC, y envían los binarios por SSH a la máquina virtual emulada en QEMU.
