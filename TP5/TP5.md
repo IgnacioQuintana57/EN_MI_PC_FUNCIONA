@@ -51,3 +51,62 @@ Los datos de nuestra Raspberry Pi eran:
 - **Modelo:** Raspberry Pi 400
 - **Kernel:** 6.12.75+rpt-rpi-v8
 - **Arquitectura:** aarch64 / arm64
+
+
+
+
+La cross compilation no me salio.
+
+
+
+### Creacion del driver y demas
+Creamos nuestro propio driver "latencyDriver" basado en el drv4 del repo proporcionado por la catedra. 
+Dentro de nuestro driver lo que hacemos es: 
+- Lo mas importante es leer y configurar los puertos GPIO 17 y 27 que es donde tiene conectado la raspy la salida de nuestro arduino con las señales cuadradas.
+- Luego configuramos el read y el write paa que haga....
+
+Antes de pasar a crear el servidor y la web para mostrar las señales, hicimos una comprobacion con comandos de linux para validar que el funcionamiento sea el esperado.
+
+
+make
+Generamos el .ko
+
+sudo insmod latencyDriver.ko
+Lo montamos 
+
+dmesg | tail -50
+(Esto se que revisa los logs del .ko que cargamos, pero nose como escribirlo sin decir una burrada)
+
+lsmod | grep -i latency
+Verifico que este cargado el driver
+
+ls -l /dev/tp5_signal
+Mas adelante veremos el codigo del driver, pero para saber que esta bien configurado, tengo que tener ese Character Device File
+
+sudo chmod 666 /dev/tp5_signal
+Damos permisos para no tener problemas
+
+
+
+cat /dev/tp5_signal > Ultima lectura que hizo el driver en el canal que estaba
+echo 1 > /dev/tp5_signal > Le digo que lea el canal 1
+cat /dev/tp5_signal > Leo que tiene el canal 1
+echo 0 > /dev/tp5_signal > Le digo que lea el canal 0
+cat /dev/tp5_signal > Leo que tiene el canal 0
+
+Para ver como cambia el valor en directo uso:
+watch -n 0.5 "cat /dev/tp5_signal"
+
+Lo que vimos: 
+
+![Vido](./assets/giftCanal0.gif)
+
+
+sudo rmmod latencyDriver
+Por ultimo descargo el driver.
+
+
+Luego pasamos al armado de lapagina web....
+Hicimos uso de chjat para los estilos y demas
+
+

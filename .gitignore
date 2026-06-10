@@ -58,3 +58,6 @@ dkms.conf
 # CARPETA DEL ENTORNO VIRTUAL
 **venv/
 **.venv/
+
+**/original.md
+**/contexto/**
