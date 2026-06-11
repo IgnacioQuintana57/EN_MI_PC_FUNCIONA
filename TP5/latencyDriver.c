@@ -1,670 +1,315 @@
-#!/usr/bin/env python3
-
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from collections import deque
-from threading import Thread, Lock
-import json
-import time
-import os
-
-DEV_PATH = "/dev/tp5_signal"
-HOST = "0.0.0.0"
-PORT = 5000
-
-POLL_INTERVAL_SECONDS = 0.050   # Python lee /dev cada 50 ms
-DISPLAY_WINDOW_SECONDS = 5      # Escala fija visible del gráfico
-MAX_HISTORY_SECONDS = 60        # Histórico guardado en memoria
-
-MAX_HISTORY = int(MAX_HISTORY_SECONDS / POLL_INTERVAL_SECONDS)
-
-history = deque(maxlen=MAX_HISTORY)
-history_lock = Lock()
-state_lock = Lock()
-
-selected_channel = 0
-sampling_enabled = True
-start_time = time.monotonic()
-running = True
-
-
-HTML = r"""
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>TP5 - Latency Driver</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <style>
-        :root {
-            --bg: #0f172a;
-            --panel: #111827;
-            --panel-2: #1f2937;
-            --text: #e5e7eb;
-            --muted: #9ca3af;
-            --accent: #38bdf8;
-            --accent-2: #22c55e;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --border: #374151;
-        }
-
-        body {
-            font-family: Arial, sans-serif;
-            background: radial-gradient(circle at top, #1e293b 0%, #020617 60%);
-            color: var(--text);
-            margin: 0;
-            padding: 30px;
-        }
-
-        .container {
-            max-width: 1180px;
-            margin: auto;
-            background: rgba(17, 24, 39, 0.96);
-            padding: 24px;
-            border-radius: 16px;
-            border: 1px solid var(--border);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
-        }
-
-        h1 {
-            margin-top: 0;
-            margin-bottom: 6px;
-            font-size: 28px;
-        }
-
-        .subtitle {
-            color: var(--muted);
-            margin-bottom: 22px;
-        }
-
-        .buttons {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 18px;
-        }
-
-        button {
-            padding: 10px 18px;
-            border: 1px solid transparent;
-            border-radius: 10px;
-            cursor: pointer;
-            color: white;
-            font-size: 15px;
-            background: #2563eb;
-        }
-
-        button:hover {
-            filter: brightness(1.15);
-        }
-
-        button.active {
-            background: var(--accent-2);
-        }
-
-        button.stop {
-            background: var(--danger);
-        }
-
-        button.resume {
-            background: var(--warning);
-        }
-
-        .info {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin: 16px 0 22px 0;
-            font-size: 15px;
-        }
-
-        .badge {
-            background: var(--panel-2);
-            border: 1px solid var(--border);
-            padding: 9px 12px;
-            border-radius: 10px;
-            color: var(--text);
-        }
-
-        .badge strong {
-            color: var(--accent);
-        }
-
-        .chart-wrap {
-            height: 480px;
-            background: #020617;
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 16px;
-        }
-
-        canvas {
-            width: 100%;
-            height: 100%;
-        }
-
-        .note {
-            margin-top: 16px;
-            color: var(--muted);
-            font-size: 14px;
-            line-height: 1.45;
-        }
-
-        .error {
-            color: #fca5a5;
-            margin-top: 10px;
-        }
-
-        code {
-            color: #93c5fd;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>TP5 - Latency Driver</h1>
-        <div class="subtitle">
-            Lectura de señales externas desde <code>/dev/tp5_signal</code> mediante un CDD.
-        </div>
-
-        <div class="buttons">
-            <button id="btn0" onclick="changeChannel(0)">Canal 0 - GPIO17</button>
-            <button id="btn1" onclick="changeChannel(1)">Canal 1 - GPIO27</button>
-            <button id="samplingBtn" class="stop" onclick="toggleSampling()">Detener toma de muestras</button>
-        </div>
-
-        <div class="info">
-            <div class="badge">
-                <strong>Canal seleccionado:</strong>
-                <span id="currentChannel">0</span>
-            </div>
-
-            <div class="badge">
-                <strong>Último valor:</strong>
-                <span id="lastValue">-</span>
-            </div>
-
-            <div class="badge">
-                <strong>Estado:</strong>
-                <span id="samplingState">Tomando muestras</span>
-            </div>
-
-            <div class="badge">
-                <strong>Histórico:</strong>
-                <span id="historyCount">0</span> muestras
-            </div>
-
-            <div class="badge">
-                <strong>Ventana visible:</strong>
-                <span id="windowSeconds">5</span> s
-            </div>
-
-            <div class="badge">
-                <strong>Lectura Python:</strong>
-                cada 50 ms
-            </div>
-        </div>
-
-        <div class="chart-wrap">
-            <canvas id="signalChart"></canvas>
-        </div>
-
-        <div class="note">
-            El servidor Python lee el CDD cada 50 ms y guarda un histórico en memoria.
-            El gráfico no intenta mostrar todo el histórico: usa una escala fija de 5 segundos,
-            suficiente para visualizar señales cuadradas de período 1 s y 0.5 s.
-            Al cambiar de canal, se escribe el nuevo canal en <code>/dev/tp5_signal</code> y se limpia el histórico.
-        </div>
-
-        <div id="errorBox" class="error"></div>
-    </div>
-
-    <script>
-        let selectedChannel = 0;
-        let samplingEnabled = true;
-        let displayWindowSeconds = 5;
-
-        const ctx = document.getElementById("signalChart").getContext("2d");
-
-        const chart = new Chart(ctx, {
-            type: "line",
-            data: {
-                datasets: [{
-                    label: "Canal 0 - GPIO17",
-                    data: [],
-                    stepped: true,
-                    tension: 0,
-                    pointRadius: 0,
-                    borderWidth: 2,
-                    borderColor: "#38bdf8",
-                    backgroundColor: "rgba(56, 189, 248, 0.18)"
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: false,
-                parsing: false,
-                plugins: {
-                    legend: {
-                        display: true,
-                        labels: {
-                            color: "#e5e7eb"
-                        }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return "Valor lógico: " + context.raw.y;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        type: "linear",
-                        min: 0,
-                        max: displayWindowSeconds,
-                        title: {
-                            display: true,
-                            text: "Tiempo [s]",
-                            color: "#e5e7eb"
-                        },
-                        ticks: {
-                            color: "#9ca3af",
-                            stepSize: 0.5
-                        },
-                        grid: {
-                            color: "rgba(148, 163, 184, 0.18)"
-                        }
-                    },
-                    y: {
-                        min: -0.1,
-                        max: 1.1,
-                        title: {
-                            display: true,
-                            text: "Valor lógico",
-                            color: "#e5e7eb"
-                        },
-                        ticks: {
-                            color: "#9ca3af",
-                            stepSize: 1
-                        },
-                        grid: {
-                            color: "rgba(148, 163, 184, 0.18)"
-                        }
-                    }
-                }
-            }
-        });
-
-        function setActiveButton(channel) {
-            document.getElementById("btn0").classList.remove("active");
-            document.getElementById("btn1").classList.remove("active");
-
-            if (channel === 0) {
-                document.getElementById("btn0").classList.add("active");
-            } else {
-                document.getElementById("btn1").classList.add("active");
-            }
-        }
-
-        function setSamplingButton(enabled) {
-            const btn = document.getElementById("samplingBtn");
-
-            samplingEnabled = enabled;
-
-            if (enabled) {
-                btn.innerText = "Detener toma de muestras";
-                btn.classList.remove("resume");
-                btn.classList.add("stop");
-                document.getElementById("samplingState").innerText = "Tomando muestras";
-            } else {
-                btn.innerText = "Reanudar toma de muestras";
-                btn.classList.remove("stop");
-                btn.classList.add("resume");
-                document.getElementById("samplingState").innerText = "Detenido";
-            }
-        }
-
-        function resetChart(channel) {
-            chart.data.datasets[0].data = [];
-
-            chart.data.datasets[0].label =
-                channel === 0
-                    ? "Canal 0 - GPIO17"
-                    : "Canal 1 - GPIO27";
-
-            chart.update();
-
-            document.getElementById("lastValue").innerText = "-";
-            document.getElementById("historyCount").innerText = "0";
-        }
-
-        async function changeChannel(channel) {
-            try {
-                const response = await fetch("/api/channel", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({ channel: channel })
-                });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    document.getElementById("errorBox").innerText = data.error || "Error al cambiar canal";
-                    return;
-                }
-
-                selectedChannel = channel;
-
-                document.getElementById("currentChannel").innerText = channel;
-                document.getElementById("errorBox").innerText = "";
-
-                setActiveButton(channel);
-                resetChart(channel);
-
-            } catch (error) {
-                document.getElementById("errorBox").innerText = error;
-            }
-        }
-
-        async function toggleSampling() {
-            try {
-                const response = await fetch("/api/sampling", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({ enabled: !samplingEnabled })
-                });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    document.getElementById("errorBox").innerText = data.error || "Error cambiando estado de muestreo";
-                    return;
-                }
-
-                setSamplingButton(data.sampling_enabled);
-                document.getElementById("errorBox").innerText = "";
-
-            } catch (error) {
-                document.getElementById("errorBox").innerText = error;
-            }
-        }
-
-        function buildFixedWindow(samples) {
-            if (samples.length === 0) {
-                return [];
-            }
-
-            const latestMs = samples[samples.length - 1].elapsed_ms;
-            const windowMs = displayWindowSeconds * 1000;
-            const windowStartMs = Math.max(0, latestMs - windowMs);
-
-            return samples
-                .filter(s => s.value !== null && s.elapsed_ms >= windowStartMs)
-                .map(s => ({
-                    x: (s.elapsed_ms - windowStartMs) / 1000,
-                    y: s.value
-                }));
-        }
-
-        async function refreshHistory() {
-            try {
-                const response = await fetch("/api/history");
-                const data = await response.json();
-
-                if (!response.ok) {
-                    document.getElementById("errorBox").innerText = data.error || "Error leyendo histórico";
-                    return;
-                }
-
-                displayWindowSeconds = data.display_window_seconds;
-                document.getElementById("windowSeconds").innerText = displayWindowSeconds;
-                chart.options.scales.x.max = displayWindowSeconds;
-
-                const samples = data.history.filter(s => s.value !== null);
-                const chartData = buildFixedWindow(samples);
-
-                chart.data.datasets[0].data = chartData;
-                chart.update();
-
-                document.getElementById("historyCount").innerText = data.count;
-                setSamplingButton(data.sampling_enabled);
-
-                if (samples.length > 0) {
-                    const last = samples[samples.length - 1];
-                    document.getElementById("currentChannel").innerText = last.channel;
-                    document.getElementById("lastValue").innerText = last.value;
-                }
-
-                document.getElementById("errorBox").innerText = "";
-
-            } catch (error) {
-                document.getElementById("errorBox").innerText = error;
-            }
-        }
-
-        setActiveButton(0);
-        changeChannel(0);
-
-        /*
-         * El servidor Python lee /dev cada 50 ms.
-         * El navegador solo refresca el gráfico cada 100 ms.
-         */
-        setInterval(refreshHistory, 100);
-    </script>
-</body>
-</html>
-"""
-
-
-def write_channel(channel: int):
-    if channel not in (0, 1):
-        raise ValueError("El canal debe ser 0 o 1")
-
-    with open(DEV_PATH, "w") as dev:
-        dev.write(str(channel))
-
-
-def read_driver():
-    with open(DEV_PATH, "r") as dev:
-        line = dev.readline().strip()
-
-    parts = line.split(",")
-
-    if len(parts) != 3:
-        raise ValueError(f"Formato inválido desde {DEV_PATH}: {line}")
-
-    driver_channel = int(parts[0])
-    value = int(parts[1])
-    driver_timestamp_ms = int(parts[2])
-
-    now = time.monotonic()
-    elapsed_ms = int((now - start_time) * 1000)
-
-    return {
-        "channel": driver_channel,
-        "value": value,
-        "driver_timestamp_ms": driver_timestamp_ms,
-        "elapsed_ms": elapsed_ms,
-        "elapsed_s": round(elapsed_ms / 1000, 3),
+#include <linux/module.h>
+#include <linux/version.h>
+#include <linux/kernel.h>
+#include <linux/types.h>
+#include <linux/kdev_t.h>
+#include <linux/fs.h>
+#include <linux/device.h>
+#include <linux/cdev.h>
+#include <linux/uaccess.h>
+#include <linux/timer.h>
+#include <linux/jiffies.h>
+#include <linux/ktime.h>
+#include <linux/io.h>
+#include <linux/bitops.h>
+
+#define DEVICE_NAME "tp5_signal"
+#define CLASS_NAME  "tp5_class"
+
+/*
+ * Raspberry Pi 400 / Raspberry Pi 4 usan BCM2711.
+ * Base física del controlador GPIO en BCM2711:
+ */
+#define GPIO_BASE_PHYS 0xFE200000
+#define GPIO_SIZE      0x100
+
+/*
+ * Offsets de registros GPIO.
+ */
+#define GPFSEL0_OFFSET 0x00
+#define GPLEV0_OFFSET  0x34
+
+/*
+ * Señales externas:
+ *
+ * Señal 0: Arduino D8 -> divisor resistivo -> Raspberry GPIO17
+ * Señal 1: Arduino D9 -> divisor resistivo -> Raspberry GPIO27
+ */
+#define GPIO_SIGNAL_0 17
+#define GPIO_SIGNAL_1 27
+
+/*
+ * La consigna pide sensar con período de 1 segundo.
+ *
+ * Para pruebas visuales, si querés ver más movimiento en el gráfico,
+ * podés bajar temporalmente esto a 200 ms.
+ */
+#define SAMPLE_PERIOD_MS 100
+
+static dev_t first;
+static struct cdev c_dev;
+static struct class *cl;
+
+static struct timer_list sample_timer;
+
+static void __iomem *gpio_base;
+
+static int selected_signal = 0;
+static int last_signal_0 = 0;
+static int last_signal_1 = 0;
+static u64 last_sample_ms = 0;
+
+static inline void __iomem *gpio_reg(u32 offset)
+{
+    return (void __iomem *)((u8 __iomem *)gpio_base + offset);
+}
+
+/*
+ * Configura un GPIO como entrada.
+ *
+ * En los registros GPFSEL:
+ * cada GPIO usa 3 bits.
+ * 000 = input
+ */
+static void tp5_gpio_set_input(unsigned int gpio)
+{
+    unsigned int reg_offset;
+    unsigned int shift;
+    u32 value;
+
+    reg_offset = GPFSEL0_OFFSET + ((gpio / 10) * 4);
+    shift = (gpio % 10) * 3;
+
+    value = ioread32(gpio_reg(reg_offset));
+    value &= ~(0x7 << shift);
+    iowrite32(value, gpio_reg(reg_offset));
+}
+
+/*
+ * Lee el nivel lógico del GPIO.
+ *
+ * Para GPIO17 y GPIO27 alcanza con GPLEV0,
+ * porque ambos están entre GPIO0 y GPIO31.
+ */
+static int tp5_gpio_read(unsigned int gpio)
+{
+    u32 level;
+
+    level = ioread32(gpio_reg(GPLEV0_OFFSET));
+    return !!(level & BIT(gpio));
+}
+
+/*
+ * Timer periódico: toma una muestra de ambas señales cada SAMPLE_PERIOD_MS.
+ */
+static void sample_timer_callback(struct timer_list *timer)
+{
+    last_signal_0 = tp5_gpio_read(GPIO_SIGNAL_0);
+    last_signal_1 = tp5_gpio_read(GPIO_SIGNAL_1);
+    last_sample_ms = ktime_to_ms(ktime_get_boottime());
+
+    mod_timer(&sample_timer, jiffies + msecs_to_jiffies(SAMPLE_PERIOD_MS));
+}
+
+static int my_open(struct inode *i, struct file *f)
+{
+    printk(KERN_INFO "tp5_signal: open()\n");
+    return 0;
+}
+
+static int my_close(struct inode *i, struct file *f)
+{
+    printk(KERN_INFO "tp5_signal: close()\n");
+    return 0;
+}
+
+/*
+ * read() devuelve una línea CSV:
+ *
+ * signal,value,timestamp_ms
+ *
+ * Ejemplo:
+ * 0,1,123456
+ */
+static ssize_t my_read(struct file *f, char __user *buf, size_t len, loff_t *off)
+{
+    char kbuf[64];
+    int value;
+    int n;
+
+    if (selected_signal == 0)
+        value = last_signal_0;
+    else
+        value = last_signal_1;
+
+    n = scnprintf(
+        kbuf,
+        sizeof(kbuf),
+        "%d,%d,%llu\n",
+        selected_signal,
+        value,
+        (unsigned long long)last_sample_ms
+    );
+
+    return simple_read_from_buffer(buf, len, off, kbuf, n);
+}
+
+/*
+ * write() permite seleccionar qué señal leer:
+ *
+ * echo 0 > /dev/tp5_signal
+ * echo 1 > /dev/tp5_signal
+ */
+static ssize_t my_write(struct file *f, const char __user *buf, size_t len, loff_t *off)
+{
+    char kbuf[8];
+
+    if (len == 0)
+        return -EINVAL;
+
+    if (len >= sizeof(kbuf))
+        len = sizeof(kbuf) - 1;
+
+    if (copy_from_user(kbuf, buf, len) != 0)
+        return -EFAULT;
+
+    kbuf[len] = '\0';
+
+    if (kbuf[0] == '0') {
+        selected_signal = 0;
+        printk(KERN_INFO "tp5_signal: seleccionada señal 0 GPIO%d\n", GPIO_SIGNAL_0);
+    } else if (kbuf[0] == '1') {
+        selected_signal = 1;
+        printk(KERN_INFO "tp5_signal: seleccionada señal 1 GPIO%d\n", GPIO_SIGNAL_1);
+    } else {
+        printk(KERN_WARNING "tp5_signal: valor inválido. Use 0 o 1.\n");
+        return -EINVAL;
     }
 
+    return len;
+}
 
-def sampler_loop():
-    global running
+static struct file_operations tp5_fops =
+{
+    .owner = THIS_MODULE,
+    .open = my_open,
+    .release = my_close,
+    .read = my_read,
+    .write = my_write
+};
 
-    while running:
-        with state_lock:
-            enabled = sampling_enabled
+static int __init tp5_init(void)
+{
+    int ret;
+    struct device *dev_ret;
 
-        if not enabled:
-            time.sleep(POLL_INTERVAL_SECONDS)
-            continue
+    printk(KERN_INFO "tp5_signal: iniciando driver\n");
 
-        try:
-            sample = read_driver()
-        except Exception as e:
-            with state_lock:
-                channel = selected_channel
+    /*
+     * Mapeamos el bloque GPIO físico del BCM2711.
+     */
+    gpio_base = ioremap(GPIO_BASE_PHYS, GPIO_SIZE);
+    if (!gpio_base) {
+        printk(KERN_ERR "tp5_signal: no se pudo mapear GPIO_BASE 0x%X\n", GPIO_BASE_PHYS);
+        return -ENOMEM;
+    }
 
-            sample = {
-                "channel": channel,
-                "value": None,
-                "driver_timestamp_ms": None,
-                "elapsed_ms": int((time.monotonic() - start_time) * 1000),
-                "elapsed_s": round(time.monotonic() - start_time, 3),
-                "error": str(e),
-            }
+    /*
+     * Configuramos los GPIO como entradas.
+     */
+    tp5_gpio_set_input(GPIO_SIGNAL_0);
+    tp5_gpio_set_input(GPIO_SIGNAL_1);
 
-        with history_lock:
-            history.append(sample)
+    printk(KERN_INFO "tp5_signal: GPIO%d y GPIO%d configurados como entrada por MMIO\n",
+           GPIO_SIGNAL_0, GPIO_SIGNAL_1);
 
-        time.sleep(POLL_INTERVAL_SECONDS)
+    /*
+     * Primera lectura inicial.
+     */
+    last_signal_0 = tp5_gpio_read(GPIO_SIGNAL_0);
+    last_signal_1 = tp5_gpio_read(GPIO_SIGNAL_1);
+    last_sample_ms = ktime_to_ms(ktime_get_boottime());
 
+    /*
+     * Inicializamos el timer periódico.
+     */
+    timer_setup(&sample_timer, sample_timer_callback, 0);
+    mod_timer(&sample_timer, jiffies + msecs_to_jiffies(SAMPLE_PERIOD_MS));
 
-class Handler(BaseHTTPRequestHandler):
-    def send_json(self, data, status=200):
-        payload = json.dumps(data).encode("utf-8")
+    /*
+     * Registramos el character device.
+     */
+    ret = alloc_chrdev_region(&first, 0, 1, DEVICE_NAME);
+    if (ret < 0) {
+        printk(KERN_ERR "tp5_signal: error en alloc_chrdev_region\n");
+        timer_shutdown_sync(&sample_timer);
+        iounmap(gpio_base);
+        return ret;
+    }
 
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(payload)))
-        self.end_headers()
-        self.wfile.write(payload)
+    cdev_init(&c_dev, &tp5_fops);
 
-    def send_html(self, html, status=200):
-        payload = html.encode("utf-8")
+    ret = cdev_add(&c_dev, first, 1);
+    if (ret < 0) {
+        printk(KERN_ERR "tp5_signal: error en cdev_add\n");
+        unregister_chrdev_region(first, 1);
+        timer_shutdown_sync(&sample_timer);
+        iounmap(gpio_base);
+        return ret;
+    }
 
-        self.send_response(status)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Content-Length", str(len(payload)))
-        self.end_headers()
-        self.wfile.write(payload)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+    cl = class_create(CLASS_NAME);
+#else
+    cl = class_create(THIS_MODULE, CLASS_NAME);
+#endif
 
-    def do_GET(self):
-        if self.path == "/":
-            self.send_html(HTML)
-            return
+    if (IS_ERR(cl)) {
+        printk(KERN_ERR "tp5_signal: error en class_create\n");
+        cdev_del(&c_dev);
+        unregister_chrdev_region(first, 1);
+        timer_shutdown_sync(&sample_timer);
+        iounmap(gpio_base);
+        return PTR_ERR(cl);
+    }
 
-        if self.path == "/api/history":
-            with history_lock:
-                data = list(history)
+    dev_ret = device_create(cl, NULL, first, NULL, DEVICE_NAME);
+    if (IS_ERR(dev_ret)) {
+        printk(KERN_ERR "tp5_signal: error en device_create\n");
+        class_destroy(cl);
+        cdev_del(&c_dev);
+        unregister_chrdev_region(first, 1);
+        timer_shutdown_sync(&sample_timer);
+        iounmap(gpio_base);
+        return PTR_ERR(dev_ret);
+    }
 
-            with state_lock:
-                current_channel = selected_channel
-                enabled = sampling_enabled
+    printk(KERN_INFO "tp5_signal: driver cargado correctamente\n");
+    printk(KERN_INFO "tp5_signal: device creado en /dev/%s\n", DEVICE_NAME);
+    printk(KERN_INFO "tp5_signal: señal 0 GPIO%d, señal 1 GPIO%d\n",
+           GPIO_SIGNAL_0, GPIO_SIGNAL_1);
 
-            self.send_json({
-                "history": data,
-                "count": len(data),
-                "selected_channel": current_channel,
-                "sampling_enabled": enabled,
-                "poll_interval_ms": int(POLL_INTERVAL_SECONDS * 1000),
-                "display_window_seconds": DISPLAY_WINDOW_SECONDS,
-                "max_history_seconds": MAX_HISTORY_SECONDS,
-            })
-            return
+    return 0;
+}
 
-        self.send_json({"error": "Not found"}, status=404)
+static void __exit tp5_exit(void)
+{
+    timer_shutdown_sync(&sample_timer);
 
-    def do_POST(self):
-        if self.path == "/api/channel":
-            self.handle_channel_change()
-            return
+    device_destroy(cl, first);
+    class_destroy(cl);
+    cdev_del(&c_dev);
+    unregister_chrdev_region(first, 1);
 
-        if self.path == "/api/sampling":
-            self.handle_sampling_change()
-            return
+    if (gpio_base)
+        iounmap(gpio_base);
 
-        self.send_json({"error": "Not found"}, status=404)
+    printk(KERN_INFO "tp5_signal: driver descargado\n");
+}
 
-    def handle_channel_change(self):
-        global selected_channel
+module_init(tp5_init);
+module_exit(tp5_exit);
 
-        try:
-            content_length = int(self.headers.get("Content-Length", "0"))
-            body = self.rfile.read(content_length).decode("utf-8")
-            data = json.loads(body) if body else {}
-
-            channel = int(data.get("channel", -1))
-
-            write_channel(channel)
-
-            with state_lock:
-                selected_channel = channel
-
-            with history_lock:
-                history.clear()
-
-            self.send_json({
-                "ok": True,
-                "channel": channel
-            })
-
-        except Exception as e:
-            self.send_json({
-                "ok": False,
-                "error": str(e)
-            }, status=400)
-
-    def handle_sampling_change(self):
-        global sampling_enabled
-
-        try:
-            content_length = int(self.headers.get("Content-Length", "0"))
-            body = self.rfile.read(content_length).decode("utf-8")
-            data = json.loads(body) if body else {}
-
-            enabled = bool(data.get("enabled", True))
-
-            with state_lock:
-                sampling_enabled = enabled
-
-            self.send_json({
-                "ok": True,
-                "sampling_enabled": enabled
-            })
-
-        except Exception as e:
-            self.send_json({
-                "ok": False,
-                "error": str(e)
-            }, status=400)
-
-    def log_message(self, format, *args):
-        return
-
-
-if __name__ == "__main__":
-    print("TP5 latency web server")
-    print(f"Device: {DEV_PATH}")
-
-    if not os.path.exists(DEV_PATH):
-        print(f"ERROR: no existe {DEV_PATH}")
-        print("Cargá el driver primero, por ejemplo:")
-        print("  sudo insmod latencyDriver.ko")
-        print("  sudo chmod 666 /dev/tp5_signal")
-        exit(1)
-
-    sampler = Thread(target=sampler_loop, daemon=True)
-    sampler.start()
-
-    print(f"Servidor escuchando en http://{HOST}:{PORT}")
-    print("Desde tu PC abrí: http://192.168.1.135:5000")
-    print("CTRL + C para cerrar.")
-
-    server = HTTPServer((HOST, PORT), Handler)
-
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        running = False
-        print("\nCerrando servidor...")
-        server.server_close()
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Sistemas de Computacion - TP5");
+MODULE_DESCRIPTION("CDD TP5: lectura de dos señales externas por GPIO usando MMIO");
